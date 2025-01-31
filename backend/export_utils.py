@@ -1,4 +1,5 @@
 # export_utils.py
+import csv
 import json
 import logging
 import msvcrt  # Windows-specific file locking
@@ -175,3 +176,41 @@ def save_json_file_to_csv(json_file_path, csv_file_path='exported_logs.csv'):
         logging.error(f"Error saving JSON to CSV: {e}")
 
     return None
+
+
+
+def csv_first_row_as_dict(csv_file):
+    """
+    Reads the first row of a CSV file and extracts only the required fields.
+
+    Args:
+        csv_file (str): Path to the input CSV file.
+
+    Returns:
+        dict: Extracted fields as a dictionary.
+    """
+    required_fields = ["status", "is_rapid_login", "is_business_hours", "risk_score"]
+
+    try:
+        with open(csv_file, mode='r', encoding='utf-8') as f:
+            reader = csv.DictReader(f)  # Read CSV as dictionaries
+            # next(reader, None)
+            first_row = next(reader, None)  # Get the first row
+
+            if not first_row:
+                print("❌ CSV file is empty!")
+                return None
+
+            # Extract only required fields
+            new_login_attempt = {key: int(first_row[key]) for key in required_fields if key in first_row}
+
+        return new_login_attempt
+
+    except FileNotFoundError:
+        print(f"❌ File not found: {csv_file}")
+        return None
+    except Exception as e:
+        print(f"❌ Error: {e}")
+        return None
+
+

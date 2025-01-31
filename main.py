@@ -8,11 +8,12 @@ from pathlib import Path
 from typing import Dict, Optional, Tuple
 
 from backend.event_logger import get_session_logs
-from backend.export_utils import save_to_json, save_json_file_to_csv
+from backend.export_utils import save_to_json, save_json_file_to_csv, csv_first_row_as_dict
 from data_clean import clean_csv
 from database.db_utils import save_to_database
 from email_script import send_email
 from enableEV import enable_failed_login_auditing
+from ML.model import start_model
 
 
 def send_login_email():
@@ -27,6 +28,8 @@ def send_login_email():
         logging.info("Login email sent successfully.")
     except Exception as e:
         logging.error(f"Failed to send login email: {e}")
+
+
 def setup_logging(log_dir: Path):
     """Setup logging with proper path handling"""
     log_dir.mkdir(exist_ok=True)
@@ -50,6 +53,11 @@ def get_base_path():
     else:
         # If the application is run from a Python interpreter
         return Path.cwd()
+
+
+def get_export_path(filename):
+    """Helper to get the full path for a file in the export directory."""
+    return str(get_base_path() / 'Exports' / filename)
 
 
 class LogAnalyzer:
@@ -78,10 +86,6 @@ class LogAnalyzer:
             ]
         )
 
-    def get_export_path(self, filename):
-        """Helper to get the full path for a file in the export directory."""
-        return str(self.export_dir / filename)
-
     def setup_directories(self) -> None:
         """Create necessary directories if they don't exist."""
         try:
@@ -91,12 +95,14 @@ class LogAnalyzer:
             logging.error(f"Failed to create directories: {e}")
             raise
 
-    def collect_logs(self, days_back: int = 100) -> None:
+    def collect_logs(self, minutes_back: Optional[int] = None,
+                     days_back: Optional[int] = None) -> None:
         """Collect logs for the specified time period."""
         try:
             logging.info(f"Collecting logs for past {days_back} days...")
             enable_failed_login_auditing()
-            self.logons, self.logoffs = get_session_logs(days_back=days_back)
+            self.logons, self.logoffs = get_session_logs(days_back=days_back) if days_back else get_session_logs(
+                minutes_back=minutes_back)
             logging.info(f"Found {len(self.logons)} human user sessions")
         except Exception as e:
             logging.error(f"Error collecting logs: {e}")
@@ -139,30 +145,32 @@ class LogAnalyzer:
         """Export logs to JSON, CSV, and cleaned CSV files."""
         try:
             # Export JSON files
-            logons_json_path = self.get_export_path('session_logons.json')
-            logoffs_json_path = self.get_export_path('session_logoffs.json')
-            save_to_database(
-                self.logons,
-                self.get_export_path('user_logons.db'))
-            save_to_database(
-                self.logoffs,
-                self.get_export_path('user_logoffs.db'))
+            logons_json_path = get_export_path('session_logons.json')
+            logoffs_json_path = get_export_path('session_logoffs.json')
+
+            print(self.logons)
+
+            save_to_database(self.logons, get_export_path('session_logons.db'))
+            save_to_database(self.logoffs, get_export_path('session_logoffs.db'))
+
             save_to_json(self.logons, logons_json_path)
             save_to_json(self.logoffs, logoffs_json_path)
 
             # Export CSV files
-            logons_csv_path = self.get_export_path('exported_logons.csv')
+            logons_csv_path = get_export_path('exported_logons.csv')
             csv_path = save_json_file_to_csv(logons_json_path, logons_csv_path)
             if not csv_path or not os.path.exists(csv_path):
                 raise FileNotFoundError(f"Failed to create CSV file: {csv_path}")
             # Clean CSV file
-            cleaned_csv_path = self.get_export_path('cleaned_logons.csv')
+            cleaned_csv_path = get_export_path('cleaned_logons.csv')
             clean_csv(logons_csv_path, cleaned_csv_path)
 
             logging.info("Export process completed successfully.")
         except Exception as e:
             logging.error(f"Error during export: {e}")
             raise
+
+
 
 
 def main():
@@ -175,12 +183,16 @@ def main():
         start_time = time.time()
 
         # Collect and analyze logs
-        analyzer.collect_logs(days_back=30)
+        analyzer.collect_logs(minutes_back=20)
         analyzer.analyze_time_range()
         analyzer.analyze_risk_distribution()
 
         # Export data
         analyzer.export_data()
+        # print()
+        latest_log = csv_first_row_as_dict(get_export_path('cleaned_logons.csv'))
+        print(latest_log)
+        start_model(latest_log)
 
         # Log execution time
         execution_time = time.time() - start_time

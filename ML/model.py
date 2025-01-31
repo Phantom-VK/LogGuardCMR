@@ -3,15 +3,16 @@ import joblib
 from sklearn.ensemble import VotingClassifier
 import numpy as np
 
+
 def load_models():
     """Load trained models, scaler, and label encoders."""
     models = {
-        "Logistic Regression": joblib.load("logistic_regression_model.pkl"),
-        "SVM": joblib.load("svm_model.pkl"),
-        "Random Forest": joblib.load("random_forest_model.pkl"),
+        "Logistic Regression": joblib.load("ML/logistic_regression_model.pkl"),
+        "SVM": joblib.load("ML/svm_model.pkl"),
+        "Random Forest": joblib.load("ML/random_forest_model.pkl"),
     }
-    scaler = joblib.load("scaler.pkl")
-    label_encoders = joblib.load("label_encoders.pkl")
+    scaler = joblib.load("ML/scaler.pkl")
+    label_encoders = joblib.load("ML/label_encoders.pkl")
 
     print("Models and scaler loaded successfully. Ready for offline predictions!")
 
@@ -27,6 +28,7 @@ def load_models():
 
     return models, scaler, label_encoders, voting_clf
 
+
 def encode_input(new_data, label_encoders):
     """Encode categorical variables in new data using label encoders."""
     new_data_encoded = new_data.copy()
@@ -34,6 +36,7 @@ def encode_input(new_data, label_encoders):
         if col in new_data:
             new_data_encoded[col] = le.transform([new_data[col]])[0]
     return new_data_encoded
+
 
 def retrain_voting_classifier(voting_clf, models, X_train, y_train):
     """Fit the VotingClassifier using already trained base models."""
@@ -48,8 +51,9 @@ def retrain_voting_classifier(voting_clf, models, X_train, y_train):
     voting_clf.fit(X_train_predictions, y_train)
 
     # Save the fitted VotingClassifier
-    joblib.dump(voting_clf, "voting_classifier.pkl")
+    joblib.dump(voting_clf, "ML/voting_classifier.pkl")
     print("Voting classifier retrained and saved!")
+
 
 def predict_danger(new_data, models, scaler, label_encoders, voting_clf):
     """Predict whether a login attempt is dangerous or not."""
@@ -60,7 +64,7 @@ def predict_danger(new_data, models, scaler, label_encoders, voting_clf):
     results = {}
     print("\n🔮 Prediction Results:")
     individual_predictions = []
-    
+
     for model_name, model in models.items():
         prediction = model.predict(new_data_scaled)
         result_text = "DANGER" if prediction[0] == 1 else "NOT DANGER"
@@ -72,7 +76,7 @@ def predict_danger(new_data, models, scaler, label_encoders, voting_clf):
     individual_predictions = np.array(individual_predictions).reshape(1, -1)
 
     # Load trained VotingClassifier
-    voting_clf = joblib.load("voting_classifier.pkl")
+    voting_clf = joblib.load("ML/voting_classifier.pkl")
     voting_prediction = voting_clf.predict(individual_predictions)
     voting_result_text = "DANGER" if voting_prediction[0] == 1 else "NOT DANGER"
 
@@ -81,33 +85,45 @@ def predict_danger(new_data, models, scaler, label_encoders, voting_clf):
 
     return results
 
-if __name__ == "__main__":
+
+def start_model(new_login_attempt):
     models, scaler, label_encoders, voting_clf = load_models()
 
-    # Load dataset for retraining VotingClassifier
-    file_path = "vikramclean.csv"
-    data = pd.read_csv(file_path)
-    features = ['status', 'is_rapid_login', 'is_business_hours', 'risk_score']
-    target = 'result'
+    output = predict_danger(new_login_attempt, models, scaler, label_encoders, voting_clf)
 
-    # Encode categorical variables
-    for col in features + [target]:
-        if data[col].dtype == 'object':
-            le = label_encoders[col]
-            data[col] = le.transform(data[col])
+    print(output)
 
-    # Prepare training data
-    X_train = scaler.transform(data[features])  # Apply saved scaler
-    y_train = data[target]
-
-    # Retrain and save VotingClassifier
-    retrain_voting_classifier(voting_clf, models, X_train, y_train)
-
-    # Example Prediction
-    new_login_attempt = {
-        "status": 0,
-        "is_rapid_login": 1,
-        "is_business_hours": 1,
-        "risk_score": 0
-    }
-    predict_danger(new_login_attempt, models, scaler, label_encoders, voting_clf)
+# if __name__ == "__main__":
+#
+#     models, scaler, label_encoders, voting_clf = load_models()
+#
+#     # Load dataset for retraining VotingClassifier
+#     file_path = "vikramclean.csv"
+#     data = pd.read_csv(file_path)
+#     features = ['status', 'is_rapid_login', 'is_business_hours', 'risk_score']
+#     target = 'result'
+#
+#     # Encode categorical variables
+#     for col in features + [target]:
+#         if data[col].dtype == 'object':
+#             le = label_encoders[col]
+#             data[col] = le.transform(data[col])
+#
+#     # Prepare training data
+#     X_train = scaler.transform(data[features])  # Apply saved scaler
+#     y_train = data[target]
+#
+#     # Retrain and save VotingClassifier
+#     retrain_voting_classifier(voting_clf, models, X_train, y_train)
+#
+#     # Example Prediction
+#     new_login_attempt = {
+#         "status": 0,
+#         "is_rapid_login": 1,
+#         "is_business_hours": 1,
+#         "risk_score": 0
+#     }
+#
+#     output = predict_danger(new_login_attempt, models, scaler, label_encoders, voting_clf)
+#
+#     print(output)
