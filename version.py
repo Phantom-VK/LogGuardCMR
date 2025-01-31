@@ -1,0 +1,2 @@
+VERSION = "1.0.0"
+BUILD_DATE = "2025-01-28"
