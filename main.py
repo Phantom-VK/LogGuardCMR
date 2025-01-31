@@ -11,10 +11,22 @@ from backend.event_logger import get_session_logs
 from backend.export_utils import save_to_json, save_json_file_to_csv
 from data_clean import clean_csv
 from database.db_utils import save_to_database
+from email_script import send_email
 from enableEV import enable_failed_login_auditing
 
 
-# Configure logging
+def send_login_email():
+    """Send an email after every system login."""
+
+    try:
+        send_email(
+            subject="System Login Notification",
+            body="Your system has successfully logged in.",
+            recipient="recipient_email"
+        )
+        logging.info("Login email sent successfully.")
+    except Exception as e:
+        logging.error(f"Failed to send login email: {e}")
 def setup_logging(log_dir: Path):
     """Setup logging with proper path handling"""
     log_dir.mkdir(exist_ok=True)
