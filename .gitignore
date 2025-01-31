@@ -1,0 +1,8 @@
+/event_logs.log
+/exports/cleaned_logons.csv
+/exports/exported_logons.csv
+/exports/logguard.log
+/exports/session_logoffs.json
+/exports/session_logons.json
+/exports/user_logoffs.db
+/exports/user_logons.db

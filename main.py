@@ -10,6 +10,7 @@ from typing import Dict, Optional, Tuple
 from backend.event_logger import get_session_logs
 from backend.export_utils import save_to_json, save_json_file_to_csv
 from data_clean import clean_csv
+from database.db_utils import save_to_database
 from enableEV import enable_failed_login_auditing
 
 
@@ -33,10 +34,10 @@ def get_base_path():
     """Get base path for the application, handling both development and executable environments"""
     if getattr(sys, 'frozen', False):
         # If the application is run as a bundle
-        return Path(sys._MEIPASS)
+        return Path(os.environ.get('APPDATA')) / "LogGuard"
     else:
         # If the application is run from a Python interpreter
-        return Path(os.path.dirname(os.path.abspath(__file__)))
+        return Path.cwd()
 
 
 class LogAnalyzer:
@@ -46,10 +47,7 @@ class LogAnalyzer:
         self.logoffs = []
 
         # Set up base directory for the application
-        if getattr(sys, 'frozen', False):
-            base_dir = Path(os.environ.get('APPDATA')) / "LogGuard"
-        else:
-            base_dir = Path.cwd()
+        base_dir = get_base_path()
 
         # Centralized export folder
         self.export_dir = base_dir / 'Exports'
@@ -131,6 +129,12 @@ class LogAnalyzer:
             # Export JSON files
             logons_json_path = self.get_export_path('session_logons.json')
             logoffs_json_path = self.get_export_path('session_logoffs.json')
+            save_to_database(
+                self.logons,
+                self.get_export_path('user_logons.db'))
+            save_to_database(
+                self.logoffs,
+                self.get_export_path('user_logoffs.db'))
             save_to_json(self.logons, logons_json_path)
             save_to_json(self.logoffs, logoffs_json_path)
 
