@@ -1,5 +1,7 @@
 import os.path
 import pickle
+import re
+import threading
 
 import customtkinter as ctk
 import tkinter as tk
@@ -8,24 +10,24 @@ import pandas as pd
 from datetime import datetime
 import random
 
-from user_data import userData
+from LogGuardCMR.GUI.user_data import userData
 
 
 class SystemDashboard(ctk.CTkFrame):
     def __init__(self, master, switch_callback):
         super().__init__(master)
 
-        if(os.path.exists("user_data.pkl")):
+        if (os.path.exists("user_data.pkl")):
             with open("user_data.pkl", 'rb') as file:
                 self.userData = pickle.load(file)
         else:
-            self.userData=userData()
+            self.userData = userData()
         # Configure grid layout
-        self.notify_loginVar=tk.BooleanVar(value=self.userData.notifyLogin)
-        self.notify_summaryVar=tk.BooleanVar()
+        self.notify_loginVar = tk.BooleanVar(value=self.userData.notifyLogin)
+        self.notify_summaryVar = tk.BooleanVar()
         self.email = ctk.StringVar(value=self.userData.email)
-        self.start_time = ctk.StringVar(value="9")
-        self.end_time = ctk.StringVar(value="17")
+        self.start_time = ctk.StringVar(value=self.userData.startingHours)
+        self.end_time = ctk.StringVar(value=self.userData.endingHours)
 
         self.grid_columnconfigure(1, weight=1)
         self.grid_rowconfigure(0, weight=1)
@@ -135,9 +137,42 @@ class SystemDashboard(ctk.CTkFrame):
             row=0, column=2
         )
 
+        # Summary controls frame
+        summary_controls_frame = ctk.CTkFrame(self.main_content)
+        summary_controls_frame.grid(row=2, column=0, padx=20, pady=10, sticky="ew")
+
+        # Label for summary frequency
+        frequency_label = ctk.CTkLabel(
+            summary_controls_frame,
+            text="Summary Frequency:",
+            font=ctk.CTkFont(size=12)
+        )
+        frequency_label.pack(side="left", padx=(10, 5))
+
+        # Dropdown menu for summary frequency
+        frequency_options = ["1 day", "7 days", "30 days"]
+        frequency_var = ctk.StringVar(value=frequency_options[0])  # Default value
+
+        frequency_dropdown = ctk.CTkComboBox(
+            summary_controls_frame,
+            values=frequency_options,
+            variable=frequency_var,
+            width=100
+        )
+        frequency_dropdown.pack(side="left", padx=(0, 10))
+
+        # Generate Summary Button (smaller size)
+        generate_summary_button = ctk.CTkButton(
+            summary_controls_frame,
+            text="Generate Summary",
+            command=self.generate_summary,
+            width=120  # Set a smaller width
+        )
+        generate_summary_button.pack(side="left", padx=(0, 10))
+
         # Recent activity
         activity_frame = ctk.CTkFrame(self.main_content)
-        activity_frame.grid(row=2, column=0, padx=20, pady=20, sticky="nsew")
+        activity_frame.grid(row=3, column=0, padx=20, pady=20, sticky="nsew")
 
         activity_label = ctk.CTkLabel(
             activity_frame,
@@ -172,6 +207,13 @@ class SystemDashboard(ctk.CTkFrame):
             tree.insert("", "end", values=activity)
 
         tree.pack(padx=10, pady=10, fill="both", expand=True)
+    def generate_summary(self):
+        """
+        Function to handle the "Generate Summary" button click.
+        """
+        print("Generating summary...")  # Replace with your logic
+        # Example: Show a toast or update the UI with the summary
+        self.show_toast("Summary generated successfully!")
 
     def show_login_history(self):
         # Clear main content
@@ -222,9 +264,6 @@ class SystemDashboard(ctk.CTkFrame):
         for widget in self.main_content.winfo_children():
             widget.destroy()
 
-
-
-
         # Title
         title = ctk.CTkLabel(
             self.main_content,
@@ -237,14 +276,11 @@ class SystemDashboard(ctk.CTkFrame):
         settings_frame = ctk.CTkFrame(self.main_content)
         settings_frame.grid(row=1, column=0, padx=20, pady=10, sticky="nsew")
         self.email_label = ctk.CTkLabel(settings_frame, text="Email Address:").pack()
-
-
         self.email_entry = ctk.CTkEntry(
             settings_frame,
             width=300,
             textvariable=self.email,
             placeholder_text="Enter your email"
-
         ).pack()
         # Email settings
         email_label = ctk.CTkLabel(
@@ -279,17 +315,51 @@ class SystemDashboard(ctk.CTkFrame):
         hours_frame = ctk.CTkFrame(settings_frame)
         hours_frame.pack(padx=20, pady=5, anchor="w")
 
+        # Start time
         start_label = ctk.CTkLabel(hours_frame, text="Start:")
-        start_label.pack(side="left", padx=5)
+        start_label.grid(row=0, column=0, padx=5, pady=5)
 
-        start_entry = ctk.CTkEntry(hours_frame, width=60)
-        start_entry.pack(side="left", padx=5)
+        def increase_start():
+            current_value = int(self.start_time.get())
+            if current_value < 23:
+                self.start_time.set(current_value + 1)
 
+        def decrease_start():
+            current_value = int(self.start_time.get())
+            if current_value > 0:
+                self.start_time.set(current_value - 1)
+
+        start_decrease_button = ctk.CTkButton(hours_frame, text="-", width=20, command=decrease_start)
+        start_decrease_button.grid(row=0, column=1, padx=5, pady=5)
+
+        start_entry = ctk.CTkEntry(hours_frame, textvariable=self.start_time, width=60)
+        start_entry.grid(row=0, column=2, padx=5, pady=5)
+
+        start_increase_button = ctk.CTkButton(hours_frame, text="+", width=20, command=increase_start)
+        start_increase_button.grid(row=0, column=3, padx=5, pady=5)
+
+        # End time
         end_label = ctk.CTkLabel(hours_frame, text="End:")
-        end_label.pack(side="left", padx=5)
+        end_label.grid(row=1, column=0, padx=5, pady=5)
 
-        end_entry = ctk.CTkEntry(hours_frame, width=60)
-        end_entry.pack(side="left", padx=5)
+        def increase_end():
+            current_value = int(self.end_time.get())
+            if current_value < 23:
+                self.end_time.set(current_value + 1)
+
+        def decrease_end():
+            current_value = int(self.end_time.get())
+            if current_value > 0:
+                self.end_time.set(current_value - 1)
+
+        end_decrease_button = ctk.CTkButton(hours_frame, text="-", width=20, command=decrease_end)
+        end_decrease_button.grid(row=1, column=1, padx=5, pady=5)
+
+        end_entry = ctk.CTkEntry(hours_frame, textvariable=self.end_time, width=60)
+        end_entry.grid(row=1, column=2, padx=5, pady=5)
+
+        end_increase_button = ctk.CTkButton(hours_frame, text="+", width=20, command=increase_end)
+        end_increase_button.grid(row=1, column=3, padx=5, pady=5)
 
         # Save button
         save_button = ctk.CTkButton(
@@ -300,15 +370,38 @@ class SystemDashboard(ctk.CTkFrame):
         save_button.pack(pady=30)
 
     def submit_changes(self):
-        with open("user_data.pkl", "wb") as file:
-            newUserData = userData(
-                notifyLogin=self.notify_loginVar.get(),
-                email=self.email.get(),
-                startingHours=self.start_time.get(),
-                endingHours=self.end_time.get(),
-                notifySummary=self.notify_summaryVar.get(),
-            )
-            pickle.dump(newUserData, file)
+        if self.is_valid_email(self.email.get()):
+            with open("user_data.pkl", "wb") as file:
+                newUserData = userData(
+                    notifyLogin=self.notify_loginVar.get(),
+                    email=self.email.get(),
+                    startingHours=self.start_time.get(),
+                    endingHours=self.end_time.get(),
+                    notifySummary=self.notify_summaryVar.get(),
+                )
+                pickle.dump(newUserData, file)
+        else:
+            self.show_toast("Invalid email")
+
+    def is_valid_email(self, email):
+        pattern = r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$"
+        return re.match(pattern, email) is not None
+
+    def show_toast(self, message):
+        """
+        Show a toast notification at the bottom of the screen.
+        """
+        toast = ctk.CTkToplevel(self.master.current_frame)
+        toast.geometry("300x50+500+700")  # Position the toast at the bottom
+        toast.overrideredirect(True)  # Remove window decorations
+        toast.attributes("-alpha", 0.9)  # Set transparency
+
+        # Add a label to display the message
+        label = ctk.CTkLabel(toast, text=message, fg_color="gray", text_color="white", corner_radius=10)
+        label.pack(padx=10, pady=10, fill="both", expand=True)
+
+        # Close the toast after 3 seconds
+        threading.Timer(3, toast.destroy).start()
 
     def create_stat_box(self, parent, title, value, row, column):
         frame = ctk.CTkFrame(parent)

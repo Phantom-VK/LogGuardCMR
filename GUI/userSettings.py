@@ -1,10 +1,12 @@
 import os
 import pickle
+import re
+import threading
 
 import customtkinter as ctk
 
-from new_dashboard import SystemDashboard
-from user_data import userData
+from LogGuardCMR.GUI.new_dashboard import SystemDashboard
+from LogGuardCMR.GUI.user_data import userData
 
 
 class CTkSpinbox(ctk.CTkFrame):
@@ -115,22 +117,42 @@ class WorkingHoursApp(ctk.CTkFrame):
         )
         self.save_button.grid(row=6, column=0, pady=20)
 
+
     def save_settings(self):
-        with open("user_data.pkl", "wb") as file:
-            newUserData = userData(
-                notifyLogin=self.notify_login.get(),
-                email=self.email.get(),
-                startingHours=self.start_time.get(),
-                endingHours=self.end_time.get(),
-                notifySummary=False,
-            )
-            pickle.dump(newUserData, file)
-            self.switch_callback()
+        if self.is_valid_email(self.email.get()):
+            with open("user_data.pkl", "wb") as file:
+                newUserData = userData(
+                    notifyLogin=self.notify_login.get(),
+                    email=self.email.get(),
+                    startingHours=self.start_time.get(),
+                    endingHours=self.end_time.get(),
+                    notifySummary=False,
+                )
+                pickle.dump(newUserData, file)
+                self.switch_callback()
+        else:
+            self.show_toast("Invalid email")
 
 
-        # Here you can add your save logic
+    def is_valid_email(self, email):
+        pattern = r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$"
+        return re.match(pattern, email) is not None
 
+    def show_toast(self, message):
+        """
+        Show a toast notification at the bottom of the screen.
+        """
+        toast = ctk.CTkToplevel(self.master.current_frame)
+        toast.geometry("300x50+500+700")  # Position the toast at the bottom
+        toast.overrideredirect(True)  # Remove window decorations
+        toast.attributes("-alpha", 0.9)  # Set transparency
 
+        # Add a label to display the message
+        label = ctk.CTkLabel(toast, text=message, fg_color="gray", text_color="white", corner_radius=10)
+        label.pack(padx=10, pady=10, fill="both", expand=True)
+
+        # Close the toast after 3 seconds
+        threading.Timer(3, toast.destroy).start()
 
 class App(ctk.CTk):
     def __init__(self):
