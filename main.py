@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Dict, Optional, Tuple
 
 from backend.event_logger import get_session_logs
-from backend.export_utils import save_to_json, save_json_file_to_csv, csv_first_row_as_dict
+from backend.export_utils import save_to_json, save_json_file_to_csv, analyze_last_logs
 from data_clean import clean_csv
 from database.db_utils import save_to_database
 from email_script import send_email
@@ -183,15 +183,14 @@ def main():
         start_time = time.time()
 
         # Collect and analyze logs
-        analyzer.collect_logs(minutes_back=20)
+        analyzer.collect_logs(minutes_back=10)
         analyzer.analyze_time_range()
         analyzer.analyze_risk_distribution()
 
         # Export data
         analyzer.export_data()
         # print()
-        latest_log = csv_first_row_as_dict(get_export_path('cleaned_logons.csv'))
-        print(latest_log)
+        latest_log = analyze_last_logs(get_export_path('cleaned_logons.csv'))
         start_model(latest_log)
 
         # Log execution time

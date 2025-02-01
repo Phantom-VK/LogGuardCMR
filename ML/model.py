@@ -67,7 +67,7 @@ def predict_danger(new_data, models, scaler, label_encoders, voting_clf):
 
     for model_name, model in models.items():
         prediction = model.predict(new_data_scaled)
-        result_text = "DANGER" if prediction[0] == 1 else "NOT DANGER"
+        result_text = prediction[0]
         results[model_name] = result_text
         print(f"{model_name} predicts: {result_text}")
         individual_predictions.append(prediction[0])  # Store predictions
@@ -78,12 +78,12 @@ def predict_danger(new_data, models, scaler, label_encoders, voting_clf):
     # Load trained VotingClassifier
     voting_clf = joblib.load("ML/voting_classifier.pkl")
     voting_prediction = voting_clf.predict(individual_predictions)
-    voting_result_text = "DANGER" if voting_prediction[0] == 1 else "NOT DANGER"
+    voting_result_text =  int(voting_prediction[0])
 
     results["Voting Ensemble"] = voting_result_text
-    print(f"🗳️ Voting Ensemble predicts: {voting_result_text}")
+    # print(f"🗳️ Voting Ensemble predicts: {voting_result_text}")
 
-    return results
+    return voting_result_text
 
 
 def start_model(new_login_attempt):
@@ -91,7 +91,7 @@ def start_model(new_login_attempt):
 
     output = predict_danger(new_login_attempt, models, scaler, label_encoders, voting_clf)
 
-    print(output)
+    return output
 
 # if __name__ == "__main__":
 #

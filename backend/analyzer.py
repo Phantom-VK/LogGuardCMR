@@ -99,8 +99,7 @@ class SessionAnalyzer:
         try:
             dt = datetime.strptime(timestamp, '%Y-%m-%d %H:%M:%S')
             return (
-                dt.weekday() < 5  # Monday-Friday
-                and self.business_hours[0] <= dt.hour < self.business_hours[1]
+                 self.business_hours[0] <= dt.hour < self.business_hours[1]
             )
         except ValueError:
             logging.warning(f"Invalid timestamp format: {timestamp}")

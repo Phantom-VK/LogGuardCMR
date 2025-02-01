@@ -179,32 +179,44 @@ def save_json_file_to_csv(json_file_path, csv_file_path='exported_logs.csv'):
 
 
 
-def csv_first_row_as_dict(csv_file):
+def analyze_last_logs(csv_file):
     """
-    Reads the first row of a CSV file and extracts only the required fields.
+    Reads the last 3 rows of a CSV file and generates a final log dictionary for AI detection.
 
     Args:
         csv_file (str): Path to the input CSV file.
 
     Returns:
-        dict: Extracted fields as a dictionary.
+        dict: Aggregated log entry for AI detection.
     """
     required_fields = ["status", "is_rapid_login", "is_business_hours", "risk_score"]
 
     try:
         with open(csv_file, mode='r', encoding='utf-8') as f:
-            reader = csv.DictReader(f)  # Read CSV as dictionaries
-            # next(reader, None)
-            first_row = next(reader, None)  # Get the first row
+            reader = list(csv.DictReader(f))  # Convert to list for easier indexing
 
-            if not first_row:
-                print("❌ CSV file is empty!")
+            if len(reader) < 2:
+                print("❌ Not enough logs to analyze (Requires at least 3 entries)")
                 return None
 
-            # Extract only required fields
-            new_login_attempt = {key: int(first_row[key]) for key in required_fields if key in first_row}
+            # Get last 3 logs
+            last_3_logs = reader[-2:]
 
-        return new_login_attempt
+            # Extract required fields and convert to int
+            extracted_logs = [
+                {key: int(row[key]) for key in required_fields if key in row}
+                for row in last_3_logs
+            ]
+
+            # Compute final AI log:
+            final_log = {
+                "status": extracted_logs[-1]["status"],
+                "is_rapid_login": any(log["is_rapid_login"] for log in extracted_logs),  # If any log was rapid
+                "is_business_hours": extracted_logs[-1]["is_business_hours"],  # Take latest business hour status
+                "risk_score": sum(log["risk_score"] for log in extracted_logs) // len(extracted_logs)  # Average risk score
+            }
+
+        return final_log
 
     except FileNotFoundError:
         print(f"❌ File not found: {csv_file}")
