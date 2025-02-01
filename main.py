@@ -1,23 +1,50 @@
+import logging
 import os
 import sys
-import winreg as reg
-import logging
 from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, Optional, Tuple
 
+import win32com
+
+from GUI.email_script import send_email
 from GUI.userSettings import App
+from ML.model import start_model
 from backend.event_logger import get_session_logs
-from backend.export_utils import save_to_json, save_json_file_to_csv, analyze_last_logs
+from backend.export_utils import save_to_json, save_json_file_to_csv, analyze_first_three_logs
 from data_clean import clean_csv
 from database.db_utils import save_to_database
-from GUI.email_script import send_email
 from enableEV import enable_failed_login_auditing
-from ML.model import start_model
 
 APP_NAME = "LogGuard"
 EXE_NAME = "LogGuard.exe"
+
+
+def get_log_directory():
+    """Ensure logs are stored in a writable directory, even when running as an EXE."""
+    if getattr(sys, 'frozen', False):
+        # Running as a compiled EXE
+        base_dir = os.path.join(os.getenv('APPDATA'), 'LogGuard')
+    else:
+        # Running from Python source code
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+
+    os.makedirs(base_dir, exist_ok=True)  # Ensure the directory exists
+    return os.path.join(base_dir, 'event_logs.log')
+
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler(get_log_directory()),
+        logging.StreamHandler()  # Also print logs to console
+    ]
+)
+
+logging.info("✅ Log system initialized!")
 
 
 def get_base_path():
@@ -32,23 +59,39 @@ def get_export_path(filename):
     return str(get_base_path() / 'Exports' / filename)
 
 
-def add_to_startup():
-    """Adds the EXE to Windows startup using the registry."""
-    try:
-        exe_path = os.path.abspath(sys.executable if getattr(sys, 'frozen', False) else "dist/" + EXE_NAME)
+def create_shortcut(exe_path, shortcut_name, startup_folder):
+    """Create a shortcut in the Startup folder."""
+    shell = win32com.client.Dispatch('WScript.Shell')
+    shortcut_path = os.path.join(startup_folder, f"{shortcut_name}.lnk")
 
-        if not os.path.exists(exe_path):
-            print(f"❌ EXE not found: {exe_path}")
-            return
+    if os.path.exists(shortcut_path):  # Remove existing shortcut if corrupted
+        os.remove(shortcut_path)
 
-        key = r"Software\Microsoft\Windows\CurrentVersion\Run"
-        with reg.OpenKey(reg.HKEY_CURRENT_USER, key, 0, reg.KEY_SET_VALUE) as reg_key:
-            reg.SetValueEx(reg_key, APP_NAME, 0, reg.REG_SZ, exe_path)
+    shortcut = shell.CreateShortCut(shortcut_path)
+    shortcut.TargetPath = exe_path
+    shortcut.WorkingDirectory = os.path.dirname(exe_path)
+    shortcut.save()
 
-        print(f"✅ {APP_NAME} added to Windows startup successfully!")
 
-    except Exception as e:
-        logging.error(f"❌ Error adding to startup: {e}")
+def add_to_startup(shortcut_name="MyApp"):
+    """Add the executable to the Startup folder (only once)."""
+    exe_path = r"dist\LogGuard.exe"
+
+    if not os.path.exists(exe_path):
+        print(f"The executable '{exe_path}' does not exist.")
+        return
+
+    startup_folder = os.path.join(os.getenv("APPDATA"), r"Microsoft\Windows\Start Menu\Programs\Startup")
+
+    # Check if shortcut already exists
+    shortcut_path = os.path.join(startup_folder, f"{shortcut_name}.lnk")
+    if not os.path.exists(shortcut_path):
+        create_shortcut(exe_path, shortcut_name, startup_folder)
+        print(f"Shortcut created for {exe_path} in the startup folder.")
+
+
+def Confrmation():
+    print("Added to startup")
 
 
 class LogAnalyzer:
@@ -110,12 +153,12 @@ def main():
     output = None
     try:
         analyzer = LogAnalyzer()
-        analyzer.collect_logs(minutes_back=40)
+        analyzer.collect_logs(minutes_back=2)
         analyzer.analyze_time_range()
         analyzer.analyze_risk_distribution()
         analyzer.export_data()
 
-        latest_log = analyze_last_logs(get_export_path('cleaned_logons.csv'))
+        latest_log = analyze_first_three_logs(get_export_path('cleaned_logons.csv'))
         output = start_model(latest_log)
 
         if getattr(sys, 'frozen', False):
@@ -132,24 +175,25 @@ def main():
 
 if __name__ == '__main__':
     add_to_startup()
+    Confrmation()
 
     # Add the app to Windows startup at first run
 
     if main():
         send_email(
-                subject="Anomalous System Login Notification",
-                body="Your system has successfully logged in. Seems Rapid Login.",
-                recipient="vikramadityakhupse@gmail.com",
-                sender='adnankhan17371@gmail.com'
-            )
+            subject="Anomalous System Login Notification",
+            body="Your system has successfully logged in. Seems Rapid Login.",
+            recipient="vikramadityakhupse@gmail.com",
+            sender='adnankhan17371@gmail.com'
+        )
     else:
 
         send_email(
-                subject="System Login Notification",
-                body="Your system has successfully logged in. No anomalous behavior detected.",
-                recipient="vikramadityakhupse@gmail.com",
-                sender='adnankhan17371@gmail.com'
-            )
+            subject="System Login Notification",
+            body="Your system has successfully logged in. No anomalous behavior detected.",
+            recipient="vikramadityakhupse@gmail.com",
+            sender='adnankhan17371@gmail.com'
+        )
 
     app = App()
     app.mainloop()

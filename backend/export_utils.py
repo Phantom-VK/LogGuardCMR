@@ -178,10 +178,9 @@ def save_json_file_to_csv(json_file_path, csv_file_path='exported_logs.csv'):
     return None
 
 
-
-def analyze_last_logs(csv_file):
+def analyze_first_three_logs(csv_file):
     """
-    Reads the last 3 rows of a CSV file and generates a final log dictionary for AI detection.
+    Reads the first 3 rows of a CSV file and generates a final aggregated log entry for AI detection.
 
     Args:
         csv_file (str): Path to the input CSV file.
@@ -193,27 +192,27 @@ def analyze_last_logs(csv_file):
 
     try:
         with open(csv_file, mode='r', encoding='utf-8') as f:
-            reader = list(csv.DictReader(f))  # Convert to list for easier indexing
+            reader = list(csv.DictReader(f))  # Convert to a list for indexing
 
-            if len(reader) < 2:
+            if len(reader) < 3:
                 print("❌ Not enough logs to analyze (Requires at least 3 entries)")
                 return None
 
-            # Get last 3 logs
-            last_3_logs = reader[-2:]
+            # Get the first 3 logs
+            first_3_logs = reader[:3]
 
-            # Extract required fields and convert to int
+            # Extract required fields and convert values to int
             extracted_logs = [
                 {key: int(row[key]) for key in required_fields if key in row}
-                for row in last_3_logs
+                for row in first_3_logs
             ]
 
             # Compute final AI log:
             final_log = {
-                "status": extracted_logs[-1]["status"],
+                "status": extracted_logs[-1]["status"],  # Take the latest status
                 "is_rapid_login": any(log["is_rapid_login"] for log in extracted_logs),  # If any log was rapid
-                "is_business_hours": extracted_logs[-1]["is_business_hours"],  # Take latest business hour status
-                "risk_score": sum(log["risk_score"] for log in extracted_logs) // len(extracted_logs)  # Average risk score
+                "is_business_hours": extracted_logs[-1]["is_business_hours"],  # Take the latest business hour status
+                "risk_score": sum(log["risk_score"] for log in extracted_logs) // len(extracted_logs)  # Avg risk score
             }
 
         return final_log
@@ -270,4 +269,3 @@ def analyze_last_logs(csv_file):
 #     except Exception as e:
 #         print(f"❌ Error: {e}")
 #         return None
-

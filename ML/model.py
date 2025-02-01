@@ -80,9 +80,10 @@ def predict_danger(new_data, models, scaler, label_encoders, voting_clf):
     voting_prediction = voting_clf.predict(individual_predictions)
     voting_result_text =  int(voting_prediction[0])
 
-    results["Voting Ensemble"] = voting_result_text
+    results["Random Forest"] = voting_result_text
+    # print(results)
     # print(f"🗳️ Voting Ensemble predicts: {voting_result_text}")
-
+    print(voting_result_text)
     return voting_result_text
 
 
