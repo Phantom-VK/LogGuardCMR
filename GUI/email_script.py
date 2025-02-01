@@ -2,7 +2,7 @@ import pickle
 import smtplib
 from email.mime.text import MIMEText
 import os.path
-from user_data import userData
+from GUI.user_data import userData
 
 # File path for user data pickle
 file_path = "user_data.pkl"
@@ -22,7 +22,7 @@ if (os.path.exists("user_data.pkl")):
         userData1 = pickle.load(file)
         print("Receiver "+userData1.email)
 else:
-    userData1 = userData1()
+    userData1 = userData()
     print("User data file not found!")
   # Fallback email if file is not found
 

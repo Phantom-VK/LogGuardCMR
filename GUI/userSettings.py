@@ -5,8 +5,8 @@ import threading
 
 import customtkinter as ctk
 
-from LogGuardCMR.GUI.new_dashboard import SystemDashboard
-from LogGuardCMR.GUI.user_data import userData
+from GUI.new_dashboard import SystemDashboard
+from GUI.user_data import userData
 
 
 class CTkSpinbox(ctk.CTkFrame):
@@ -117,7 +117,6 @@ class WorkingHoursApp(ctk.CTkFrame):
         )
         self.save_button.grid(row=6, column=0, pady=20)
 
-
     def save_settings(self):
         if self.is_valid_email(self.email.get()):
             with open("user_data.pkl", "wb") as file:
@@ -132,7 +131,6 @@ class WorkingHoursApp(ctk.CTkFrame):
                 self.switch_callback()
         else:
             self.show_toast("Invalid email")
-
 
     def is_valid_email(self, email):
         pattern = r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$"
@@ -153,6 +151,7 @@ class WorkingHoursApp(ctk.CTkFrame):
 
         # Close the toast after 3 seconds
         threading.Timer(3, toast.destroy).start()
+
 
 class App(ctk.CTk):
     def __init__(self):
@@ -183,6 +182,5 @@ class App(ctk.CTk):
         self.current_frame = self.working_hours_app
         self.current_frame.pack(fill="both", expand=True)
 
-if __name__ == "__main__":
-        app = App()
-        app.mainloop()
+
+

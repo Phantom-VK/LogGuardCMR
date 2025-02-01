@@ -7,11 +7,12 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, Optional, Tuple
 
+from GUI.userSettings import App
 from backend.event_logger import get_session_logs
 from backend.export_utils import save_to_json, save_json_file_to_csv, analyze_last_logs
 from data_clean import clean_csv
 from database.db_utils import save_to_database
-from email_script import send_email
+from GUI.email_script import send_email
 from enableEV import enable_failed_login_auditing
 from ML.model import start_model
 
@@ -209,4 +210,6 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    app = App()
+    app.mainloop()
+    # main()

@@ -1,16 +1,15 @@
 import os.path
 import pickle
+import random
 import re
 import threading
+import tkinter as tk
+from datetime import datetime
+from tkinter import ttk
 
 import customtkinter as ctk
-import tkinter as tk
-from tkinter import ttk
-import pandas as pd
-from datetime import datetime
-import random
 
-from LogGuardCMR.GUI.user_data import userData
+from GUI.user_data import userData
 
 
 class SystemDashboard(ctk.CTkFrame):
