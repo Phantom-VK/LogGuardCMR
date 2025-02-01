@@ -127,3 +127,57 @@ def query_database(db_name, table_name='session_logs'):
     except Exception as e:
         print(f"Error querying database: {e}")
         return []
+
+
+def query_last_logon_session(db_name, table_name='session_logs'):
+    """
+    Query the latest logon session from the database.
+
+    Args:
+        db_name (str): Path to the SQLite database file.
+        table_name (str): Name of the table.
+
+    Returns:
+        dict: The latest logon session entry.
+    """
+    try:
+        conn = sqlite3.connect(db_name)
+        cursor = conn.cursor()
+
+        # Define columns to fetch
+        selected_columns = [
+            'timestamp',
+            'event_type',
+            'user',
+            'risk_score',
+            'day_of_week',
+            'is_rapid_login',
+            'status',
+            'is_business_hours'
+        ]
+
+        # Query to fetch the latest logon session
+        query = f"""
+        SELECT {', '.join(selected_columns)}
+        FROM {table_name}
+        WHERE event_type = 'Logon'
+        ORDER BY timestamp DESC
+        LIMIT 1
+        """
+        cursor.execute(query)
+        row = cursor.fetchone()
+
+        conn.close()
+
+        # Convert row into a dictionary
+        if row:
+            return dict(zip(selected_columns, row))
+        else:
+            return {}
+
+    except sqlite3.Error as e:
+        print(f"Database error: {str(e)}")
+        return {}
+    except Exception as e:
+        print(f"Error querying database: {e}")
+        return {}

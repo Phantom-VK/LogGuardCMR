@@ -14,21 +14,23 @@ body = 'This is the body of the email'
 # Sender email and app password
 app_password = 'lrjj pvxn gtsn nbka'
 sender = 'adnankhan17371@gmail.com'
-userData1=userData()
+userData1 = userData()
 
 # Check if the file exists and load user data
-if (os.path.exists("user_data.pkl")):
+if os.path.exists("user_data.pkl"):
     with open("user_data.pkl", 'rb') as file:
         userData1 = pickle.load(file)
-        print("Receiver "+userData1.email)
+        print("Receiver " + userData1.email)
 else:
     userData1 = userData()
     print("User data file not found!")
-  # Fallback email if file is not found
+# Fallback email if file is not found
 
 print(f"Sender: {sender}")  # Print recipient to check
 
-recipient=userData1.email
+recipient = userData1.email
+
+
 # Function to send email
 def send_email(subject, body, sender, recipient):
     msg = MIMEText(body)
@@ -44,6 +46,5 @@ def send_email(subject, body, sender, recipient):
     except Exception as e:
         print(f"Failed to send email: {e}")
 
-
 # Send the email
-send_email(subject, body, sender, recipient)
+# send_email(subject, body, sender, recipient)

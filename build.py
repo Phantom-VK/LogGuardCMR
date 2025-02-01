@@ -1,50 +1,33 @@
 import os
 import PyInstaller.__main__
 
+# Project Directories
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+MAIN_SCRIPT = os.path.join(BASE_DIR, "main.py")
+ICON_PATH = os.path.join(BASE_DIR, "user_info", "logo.ico")  # Ensure the logo exists
 
-def build_exe():
-    # Get the directory of the current script
-    base_dir = os.path.dirname(os.path.abspath(__file__))
+# PyInstaller Arguments
+args = [
+    MAIN_SCRIPT,
+    "--onefile",  # Bundle everything into a single EXE
+    "--noconsole",  # Hide the terminal window
+    "--name=LogGuard",  # Name of the output EXE
+    f"--icon={ICON_PATH}",  # Set application icon
+    "--clean",  # Clean previous builds
+    "--log-level=INFO",  # Detailed logs
+    "--add-data=backend;backend",  # Include backend folder
+    "--add-data=database;database",  # Include database folder
+    "--add-data=GUI;GUI",  # Include GUI folder
+    "--add-data=ML;ML",  # Include ML folder
+    "--add-data=user_info;user_info",  # Include user data folder
+    "--hidden-import=win32evtlog",
+    "--hidden-import=win32api",
+    "--hidden-import=win32con",
+    "--hidden-import=sqlite3",
+    "--hidden-import=pandas",
+]
 
-    # Define paths
-    main_path = os.path.join(base_dir, 'main.py')
-    readme_path = os.path.join(base_dir, 'README.txt')
-    enable_ev_path = os.path.join(base_dir, 'enableEV.py')
-    backend_path = os.path.join(base_dir, 'backend')
-    database_path = os.path.join(base_dir, 'database')
-    data_clean_path = os.path.join(base_dir, 'data_clean.py')
-
-    # Handle OS-specific path separator for --add-data
-    sep = ';' if os.name == 'nt' else ':'
-
-    # PyInstaller arguments
-    args = [
-        main_path,
-        '--onefile',  # Create a single executable
-        '--name=LogGuard',
-        '--clean',  # Clean PyInstaller cache and temporary files
-        '--noconsole',  # Remove this if you want to see console output
-        '--log-level=INFO',  # Set logging level for PyInstaller
-        '--icon=user_info/logo.ico',  # Path to the application icon (optional)
-        # Add hidden imports
-        '--hidden-import=win32evtlog',
-        '--hidden-import=win32api',
-        '--hidden-import=win32con',
-        '--hidden-import=win32security',
-        '--hidden-import=pandas',
-        '--hidden-import=sqlite3',
-        '--hidden-import=sklearn',  # For LabelEncoder
-        # Add required files and directories
-        f'--add-data={readme_path}{sep}.',
-        f'--add-data={enable_ev_path}{sep}.',
-        f'--add-data={data_clean_path}{sep}.',
-        f'--add-data={backend_path}{sep}backend',
-        f'--add-data={database_path}{sep}database',
-    ]
-
-    # Run PyInstaller
-    PyInstaller.__main__.run(args)
-
-
+# Run PyInstaller
 if __name__ == "__main__":
-    build_exe()
+    PyInstaller.__main__.run(args)
+    print("\n✅ Build completed! Check the 'dist' folder for LogGuard.exe.")

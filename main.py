@@ -1,7 +1,7 @@
-import logging
 import os
 import sys
-import time
+import winreg as reg
+import logging
 from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
@@ -16,49 +16,39 @@ from GUI.email_script import send_email
 from enableEV import enable_failed_login_auditing
 from ML.model import start_model
 
-
-def send_login_email():
-    """Send an email after every system login."""
-
-    try:
-        send_email(
-            subject="System Login Notification",
-            body="Your system has successfully logged in.",
-            recipient="recipient_email"
-        )
-        logging.info("Login email sent successfully.")
-    except Exception as e:
-        logging.error(f"Failed to send login email: {e}")
-
-
-def setup_logging(log_dir: Path):
-    """Setup logging with proper path handling"""
-    log_dir.mkdir(exist_ok=True)
-    log_file = log_dir / f"logguard_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
-
-    logging.basicConfig(
-        level=logging.INFO,
-        format='%(asctime)s - %(levelname)s - %(message)s',
-        handlers=[
-            logging.FileHandler(log_file),
-            logging.StreamHandler()
-        ]
-    )
+APP_NAME = "LogGuard"
+EXE_NAME = "LogGuard.exe"
 
 
 def get_base_path():
-    """Get base path for the application, handling both development and executable environments"""
+    """Get base path dynamically, handling frozen EXE cases."""
     if getattr(sys, 'frozen', False):
-        # If the application is run as a bundle
-        return Path(os.environ.get('APPDATA')) / "LogGuard"
-    else:
-        # If the application is run from a Python interpreter
-        return Path.cwd()
+        return Path(sys._MEIPASS)  # PyInstaller EXE folder
+    return Path.cwd()
 
 
 def get_export_path(filename):
-    """Helper to get the full path for a file in the export directory."""
+    """Get the path for exported files."""
     return str(get_base_path() / 'Exports' / filename)
+
+
+def add_to_startup():
+    """Adds the EXE to Windows startup using the registry."""
+    try:
+        exe_path = os.path.abspath(sys.executable if getattr(sys, 'frozen', False) else "dist/" + EXE_NAME)
+
+        if not os.path.exists(exe_path):
+            print(f"❌ EXE not found: {exe_path}")
+            return
+
+        key = r"Software\Microsoft\Windows\CurrentVersion\Run"
+        with reg.OpenKey(reg.HKEY_CURRENT_USER, key, 0, reg.KEY_SET_VALUE) as reg_key:
+            reg.SetValueEx(reg_key, APP_NAME, 0, reg.REG_SZ, exe_path)
+
+        print(f"✅ {APP_NAME} added to Windows startup successfully!")
+
+    except Exception as e:
+        logging.error(f"❌ Error adding to startup: {e}")
 
 
 class LogAnalyzer:
@@ -66,150 +56,100 @@ class LogAnalyzer:
         self.database_dir = None
         self.logons = []
         self.logoffs = []
-
-        # Set up base directory for the application
         base_dir = get_base_path()
-
-        # Centralized export folder
         self.export_dir = base_dir / 'Exports'
-
-        # Create the export folder if it doesn't exist
         self.export_dir.mkdir(parents=True, exist_ok=True)
 
-        # Configure logging
-        log_file = self.export_dir / "logguard.log"
-        logging.basicConfig(
-            level=logging.INFO,
-            format="%(asctime)s - %(levelname)s - %(message)s",
-            handlers=[
-                logging.FileHandler(log_file),
-                logging.StreamHandler()
-            ]
-        )
-
-    def setup_directories(self) -> None:
-        """Create necessary directories if they don't exist."""
-        try:
-            self.export_dir.mkdir(exist_ok=True)
-            self.database_dir.mkdir(exist_ok=True)
-        except Exception as e:
-            logging.error(f"Failed to create directories: {e}")
-            raise
-
-    def collect_logs(self, minutes_back: Optional[int] = None,
-                     days_back: Optional[int] = None) -> None:
-        """Collect logs for the specified time period."""
-        try:
-            logging.info(f"Collecting logs for past {days_back} days...")
-            enable_failed_login_auditing()
-            self.logons, self.logoffs = get_session_logs(days_back=days_back) if days_back else get_session_logs(
-                minutes_back=minutes_back)
-            logging.info(f"Found {len(self.logons)} human user sessions")
-        except Exception as e:
-            logging.error(f"Error collecting logs: {e}")
-            raise
+    def collect_logs(self, minutes_back: Optional[int] = None, days_back: Optional[int] = None) -> None:
+        """Collect system logon logs."""
+        enable_failed_login_auditing()
+        self.logons, self.logoffs = get_session_logs(days_back=days_back) if days_back else get_session_logs(
+            minutes_back=minutes_back)
 
     def analyze_time_range(self) -> Optional[Tuple[datetime, datetime]]:
-        """Analyze the time range of collected logs."""
+        """Analyze the time range of logs."""
         if not self.logons:
-            logging.warning("No logs found to analyze time range")
             return None
-
-        try:
-            first_log = datetime.strptime(self.logons[0]['timestamp'], '%Y-%m-%d %H:%M:%S')
-            last_log = datetime.strptime(self.logons[-1]['timestamp'], '%Y-%m-%d %H:%M:%S')
-            logging.info(f"Log time range: {first_log} to {last_log}")
-            return first_log, last_log
-        except Exception as e:
-            logging.error(f"Error analyzing time range: {e}")
-            return None
+        first_log = datetime.strptime(self.logons[0]['timestamp'], '%Y-%m-%d %H:%M:%S')
+        last_log = datetime.strptime(self.logons[-1]['timestamp'], '%Y-%m-%d %H:%M:%S')
+        return first_log, last_log
 
     def analyze_risk_distribution(self) -> Dict[int, int]:
-        """Analyze risk score distribution in logs."""
-        try:
-            risk_groups = defaultdict(list)
-            for log in self.logons:
-                risk_groups[log.get('risk_score', 0)].append(log)
-
-            distribution = {score: len(events) for score, events in risk_groups.items()}
-
-            logging.info("Risk Score Distribution:")
-            for score in sorted(distribution.keys()):
-                logging.info(f"Risk Score {score}: {distribution[score]} events")
-
-            return distribution
-        except Exception as e:
-            logging.error(f"Error analyzing risk distribution: {e}")
-            return {}
+        """Analyze risk scores in logs."""
+        risk_groups = defaultdict(list)
+        for log in self.logons:
+            risk_groups[log.get('risk_score', 0)].append(log)
+        return {score: len(events) for score, events in risk_groups.items()}
 
     def export_data(self):
-        """Export logs to JSON, CSV, and cleaned CSV files."""
+        """Export logs to JSON, CSV, and database."""
         try:
-            # Export JSON files
             logons_json_path = get_export_path('session_logons.json')
             logoffs_json_path = get_export_path('session_logoffs.json')
 
-            print(self.logons)
-
             save_to_database(self.logons, get_export_path('session_logons.db'))
             save_to_database(self.logoffs, get_export_path('session_logoffs.db'))
-
             save_to_json(self.logons, logons_json_path)
             save_to_json(self.logoffs, logoffs_json_path)
 
-            # Export CSV files
             logons_csv_path = get_export_path('exported_logons.csv')
             csv_path = save_json_file_to_csv(logons_json_path, logons_csv_path)
+
             if not csv_path or not os.path.exists(csv_path):
                 raise FileNotFoundError(f"Failed to create CSV file: {csv_path}")
-            # Clean CSV file
+
             cleaned_csv_path = get_export_path('cleaned_logons.csv')
             clean_csv(logons_csv_path, cleaned_csv_path)
 
-            logging.info("Export process completed successfully.")
         except Exception as e:
-            logging.error(f"Error during export: {e}")
-            raise
-
-
+            logging.error(f"❌ Error exporting data: {e}")
 
 
 def main():
+    """Main function to analyze logs and detect anomalies."""
+    output = None
     try:
-        # Create analyzer instance
         analyzer = LogAnalyzer()
-
-        # Log start of execution
-        logging.info("Starting LogGuard application...")
-        start_time = time.time()
-
-        # Collect and analyze logs
-        analyzer.collect_logs(minutes_back=10)
+        analyzer.collect_logs(minutes_back=40)
         analyzer.analyze_time_range()
         analyzer.analyze_risk_distribution()
-
-        # Export data
         analyzer.export_data()
-        # print()
+
         latest_log = analyze_last_logs(get_export_path('cleaned_logons.csv'))
-        start_model(latest_log)
+        output = start_model(latest_log)
 
-        # Log execution time
-        execution_time = time.time() - start_time
-        logging.info(f"Total execution time: {execution_time:.2f} seconds")
-
-        # Pause for user input (only for executables)
         if getattr(sys, 'frozen', False):
-            os.system("pause")  # Use pause for Windows
+            input("\nPress Enter to exit...")  # Keeps window open in EXE mode
+
     except Exception as e:
-        logging.critical(f"Application failed: {e}")
+        logging.error(f"❌ Fatal error in main(): {e}")
         if getattr(sys, 'frozen', False):
-            # Gracefully exit without input() for executables
-            logging.error("Exiting due to error.")
+            input(f"\nError: {e}\nPress Enter to exit...")  # Shows error in EXE
         sys.exit(1)
+
+    return output
 
 
 if __name__ == '__main__':
+    add_to_startup()
+
+    # Add the app to Windows startup at first run
+
+    if main():
+        send_email(
+                subject="Anomalous System Login Notification",
+                body="Your system has successfully logged in. Seems Rapid Login.",
+                recipient="vikramadityakhupse@gmail.com",
+                sender='adnankhan17371@gmail.com'
+            )
+    else:
+
+        send_email(
+                subject="System Login Notification",
+                body="Your system has successfully logged in. No anomalous behavior detected.",
+                recipient="vikramadityakhupse@gmail.com",
+                sender='adnankhan17371@gmail.com'
+            )
+
     app = App()
     app.mainloop()
-    # main()

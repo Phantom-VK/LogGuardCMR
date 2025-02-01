@@ -225,4 +225,49 @@ def analyze_last_logs(csv_file):
         print(f"❌ Error: {e}")
         return None
 
+# def get_last_log(csv_file):
+#     """
+#     Reads the last 3 rows of a CSV file and generates a final log dictionary for AI detection.
+#
+#     Args:
+#         csv_file (str): Path to the input CSV file.
+#
+#     Returns:
+#         dict: Aggregated log entry for AI detection.
+#     """
+#     required_fields = ["status", "is_rapid_login", "is_business_hours", "risk_score"]
+#
+#     try:
+#         with open(csv_file, mode='r', encoding='utf-8') as f:
+#             reader = list(csv.DictReader(f))  # Convert to list for easier indexing
+#
+#             if len(reader) < 2:
+#                 print("❌ Not enough logs to analyze (Requires at least 3 entries)")
+#                 return None
+#
+#             # Get last 3 logs
+#             last_3_logs = reader[-2:]
+#
+#             # Extract required fields and convert to int
+#             extracted_logs = [
+#                 {key: int(row[key]) for key in required_fields if key in row}
+#                 for row in last_3_logs
+#             ]
+#
+#             # Compute final AI log:
+#             final_log = {
+#                 "status": extracted_logs[-1]["status"],
+#                 "is_rapid_login": any(log["is_rapid_login"] for log in extracted_logs),  # If any log was rapid
+#                 "is_business_hours": extracted_logs[-1]["is_business_hours"],  # Take latest business hour status
+#                 "risk_score": sum(log["risk_score"] for log in extracted_logs) // len(extracted_logs)  # Average risk score
+#             }
+#
+#         return final_log
+#
+#     except FileNotFoundError:
+#         print(f"❌ File not found: {csv_file}")
+#         return None
+#     except Exception as e:
+#         print(f"❌ Error: {e}")
+#         return None
 

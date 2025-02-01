@@ -9,7 +9,9 @@ from tkinter import ttk
 
 import customtkinter as ctk
 
+from GUI.email_script import send_email
 from GUI.user_data import userData
+from ai_with_gui import LogSummaryGenerator
 
 
 class SystemDashboard(ctk.CTkFrame):
@@ -206,11 +208,20 @@ class SystemDashboard(ctk.CTkFrame):
             tree.insert("", "end", values=activity)
 
         tree.pack(padx=10, pady=10, fill="both", expand=True)
-    def generate_summary(self):
+
+    def generate_summary(self, sample_log=None):
         """
         Function to handle the "Generate Summary" button click.
         """
+        # generator = LogSummaryGenerator()
+
         print("Generating summary...")  # Replace with your logic
+        send_email(
+            subject="Today's Summary",
+            body = "Hey there, this is your today's summary",
+            recipient="vikramadityakhupse@gmail.com",
+            sender='adnankhan17371@gmail.com'
+        )
         # Example: Show a toast or update the UI with the summary
         self.show_toast("Summary generated successfully!")
 
